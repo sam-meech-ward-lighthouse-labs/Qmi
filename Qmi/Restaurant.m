@@ -58,6 +58,46 @@ id<RestaurantDelegate> _delegate;
 
 }
 
+- (void)advanceCustomersBehindTheRemovedCustomer:(Customer *) customer andUpdateTheQueue:(int)deletedCustomer {
+    [self callSortedQueueWithCompletionBlock:^(NSArray<Customer *> * _Nullable queue, NSError * _Nullable error) {
+        for(Customer *movingCustomer in queue){
+            if([movingCustomer fetchIfNeeded].queueNum > deletedCustomer)
+            {
+                [movingCustomer fetchIfNeeded].queueNum -= 1;
+                
+                
+                NSString *channel = [movingCustomer.user fetchIfNeeded].username;
+                
+                if(!channel){
+                    channel = @"";
+                }
+                
+                
+                
+                
+                [movingCustomer saveInBackgroundWithBlock:^(BOOL succeeded, NSError * _Nullable error) {
+                    if(error){
+                        NSLog(@"Error while saving: %@", error);
+                    }
+                    [PFCloud callFunction:@"sendPushNotification" withParameters:@{@"AlertText":[NSString stringWithFormat:@"Moved to position %d", [movingCustomer fetchIfNeeded].queueNum + 1], @"channel":channel}];
+                }];
+            }
+            
+        }
+        
+        
+        //Send Notification to the user that they have been removed
+        NSString *channel = [customer.user fetchIfNeeded].username;
+        if(!channel){
+            channel = @"";
+        }
+        [PFCloud callFunction:@"sendPushNotification" withParameters:@{@"AlertText":@"Removed from Queue", @"channel":channel}];
+        
+        
+        [self updateQueue];
+        }];
+}
+
 //Removes Customer from queue, advances the queue and updates the passed in array
 -(void) removeCustomer:(Customer *) customer {
  
@@ -73,45 +113,14 @@ id<RestaurantDelegate> _delegate;
         if(error){
             NSLog(@"Error while deleting: %@", error);
         }
-        //Advace customers behind the removed customer and update the queue
-        [self callSortedQueueWithCompletionBlock:^(NSArray<Customer *> * _Nullable queue, NSError * _Nullable error) {
-            for(Customer *movingCustomer in queue){
-                if([movingCustomer fetchIfNeeded].queueNum > deletedCustomer)
-                {
-                    [movingCustomer fetchIfNeeded].queueNum -= 1;
-                    
-                    
-                    NSString *channel = [movingCustomer.user fetchIfNeeded].username;
-                    
-                    if(!channel){
-                        channel = @"";
-                    }
-                    
-                    
-                    
-                    
-                    [movingCustomer saveInBackgroundWithBlock:^(BOOL succeeded, NSError * _Nullable error) {
-                        if(error){
-                            NSLog(@"Error while saving: %@", error);
-                        }
-                        [PFCloud callFunction:@"sendPushNotification" withParameters:@{@"AlertText":[NSString stringWithFormat:@"Moved to position %d", [movingCustomer fetchIfNeeded].queueNum + 1], @"channel":channel}];
-                    }];
-                }
-                
-            }
-            
-            
-            //Send Notification to the user that they have been removed
-            NSString *channel = [customer.user fetchIfNeeded].username;
-            if(!channel){
-                channel = @"";
-            }
-            [PFCloud callFunction:@"sendPushNotification" withParameters:@{@"AlertText":@"Removed from Queue", @"channel":channel}];
-            
-            
-            [self updateQueue];
-        }];
         
+        /*
+         If I seperate some of the logic out into another function I can make this function smaller and require less comments.
+         Get your functions to do the work of explaining your code. 
+         */
+        //Advace customers behind the removed customer and update the queue
+        [self advanceCustomersBehindTheRemovedCustomer:customer andUpdateTheQueue:deletedCustomer];
+    
     }];
     
     [self saveInBackgroundWithBlock:^(BOOL succeeded, NSError * _Nullable error) {

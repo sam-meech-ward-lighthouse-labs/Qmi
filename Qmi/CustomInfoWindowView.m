@@ -21,6 +21,10 @@
     
     int ratingInt = [rating intValue];
     
+    /*
+     This function is not very scalable. I think you might have been able to accomplish this with a for loop.
+     */
+    
     switch (ratingInt) {
         case 1:
             self.starOne.image = [UIImage imageNamed:@"Qmi-Star"];

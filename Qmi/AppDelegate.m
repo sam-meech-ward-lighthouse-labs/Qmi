@@ -27,6 +27,11 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Override point for customization after application launch.
     
+    
+    /*
+     * The `didFinishLaunchingWithOptions` method is pretty big here, it would be nice if some of this logic was moved into its own functions.
+     */
+    
     //Connect to parse
     [Parse initializeWithConfiguration:[ParseClientConfiguration configurationWithBlock:^(id<ParseMutableClientConfiguration> configuration) {
         configuration.applicationId = @"Qmi";
@@ -77,6 +82,9 @@
 
 }
 
+/*
+ * Good job on the pragma mark, but remember that everything that comes after this should be about push notificaitons. If there is something that is not to do with push notificaitons, you should add another pragma mark.
+ */
 # pragma Mark - Push Notifications
 
 - (void)registerForRemoteNotifications {
@@ -143,7 +151,13 @@
     // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
 }
 
-//Sets the phones (installations) channel to the users username
+
+
+/**
+ Sets the phones (installations) channel to the users username.
+ 
+ @param currentUser The user to use for the username.
+ */
 -(void)setInstallationChannelToEmail:(User *)currentUser{
     PFInstallation *currentInstallation = [PFInstallation currentInstallation];
     NSString *userName = [currentUser fetchIfNeeded].username;

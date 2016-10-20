@@ -30,7 +30,7 @@
     
     newCustomer.partySize = partySize;
     newCustomer.user = user;
-    newCustomer.name = [user fetchIfNeeded].name;
+    newCustomer.name = [user fetchIfNeeded].name; // This is a syncronous call to the network and should be done on a background thread. But you can't do an async call here in the initalizer, so that complicates things.
     newCustomer.distance = distance;
     
     return newCustomer;

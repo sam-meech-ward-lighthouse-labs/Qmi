@@ -6,6 +6,10 @@
 //  Copyright © 2016 Philip Ha. All rights reserved.
 //
 
+/*
+ Massive View Controller
+ */
+
 #import "CustomerViewController.h"
 #import "GoogleMapsRestaurant.h"
 @import GooglePlaces;
@@ -27,7 +31,7 @@
 @property (nonatomic, strong) GMSMapView * mapView;
 @property (nonatomic, strong) NSURLSession * markerSession;
 @property (nonatomic, strong) NSMutableArray *restaurants;
-@property (nonatomic) CustomInfoWindowView * infoWindow;
+@property (nonatomic) CustomInfoWindowView * infoWindow; // Be consistend, make strong explicit here.
 @property (nonatomic, strong) NSString *currentPageToken;
 @property (nonatomic, strong) NSString *lastPageToken;
 @property (assign) int counter;
@@ -48,6 +52,10 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     
+    /*
+     This is a pretty big viewDidLoad. It would be nice to see this distributed over a couple of seperate methods.
+     */
+    
     //set view update delegate to self
     AppDelegate *appDelegate = (AppDelegate *) [UIApplication sharedApplication].delegate;
     appDelegate.delegate = self;
@@ -56,7 +64,7 @@
     [self.locationManager startLocationMonitoring];
     self.locationManager.delegate = self;
     
-    self.currentPageToken  = @"111";
+    self.currentPageToken  = @"111"; // This would be the perfect place for a 'why' comment
     self.lastPageToken = @"000";
     self.counter = 0;
     
@@ -133,7 +141,9 @@
 
 
 
-
+/*
+ Nice use of lazy instantiation.
+ */
 -(NSMutableArray *)restaurants{
     if(!_restaurants){
         self.restaurants = [[NSMutableArray alloc] init];
@@ -153,7 +163,11 @@
     
 }
 
-
+/*
+ Something like this could go in a 'Network' object. Just an object that's only responsibility is to make network requests.
+ 
+ Also this is a pretty huge function. We want functions to really only do one thing, this is accomplished by splitting it up into lots of smaller funcitons. Smaller functions are also easier to refactor later. Once you realize a big function like this actually works, you make sure no one ever touches it again.
+ */
 -(void)fetchRestaurantsWithURL:(NSString *)urlString{
     
     self.counter = self.counter + 1;
@@ -234,6 +248,9 @@
     [dataTask resume];
 }
 
+/*
+ Putting 'get' at the bigging of a method implies it returns something.
+ */
 -(void)getRestaurantLocation
 {
     
@@ -269,6 +286,11 @@
     }
 }
 
+/*
+ Nice function.
+ 
+ This would be a good function to add directly to a UIImage extension.
+ */
 - (UIImage *)image:(UIImage*)originalImage scaledToSize:(CGSize)size
 {
     //avoid redundant drawing
@@ -302,7 +324,12 @@
     
 }
 
-//Set marker info window
+/**
+ Set marker info window
+ @param mapView (Description about what the mapview is used for in this funciton)
+ @param marker (Description about what the marker is used for in this funciton)
+ @return Description about what kind of view is returned and how it should be used.
+ */
 -(UIView *)mapView:(GMSMapView *)mapView markerInfoWindow:(GMSMarker *)marker{
     
     RestaurantMarker *restaurantMarker = (RestaurantMarker*) marker;
@@ -345,33 +372,19 @@
     }];
     
         
+        /*
+         This action made the function pretty big. When this happens it can be nice to seperate that logic into its own function.
+         */
     UIAlertAction * action = [UIAlertAction actionWithTitle:@"Join" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         
+        /*
+         This is a syncronous call to the network and should be done on a background thread
+         */
         [restaurant fetchIfNeeded];
         
-        //Create a new customer, add them to the restaurants queue then save both
-        Customer *newCustomer = [Customer customerWithUser:[User currentUser] partySize:sizeOfPartyTextField.text andDistance:@"Calculate this"];
-        [restaurant addCustomer:newCustomer];
-        [newCustomer saveInBackground];
-        [restaurant saveInBackground];
-        self.currentCustomer = newCustomer;
-        self.currentRestaurant = restaurant;
+        NSString *partySize = sizeOfPartyTextField.text;
         
-        
-        //Show the position in Queue indicator, unselect the map marker to hide the info window
-        
-        [self updateQueueInfoWindow];
-        self.mapView.selectedMarker = nil;
-        
-        //Send a push notification to the restaurant to inform them and update their view
-        NSString *channel = [restaurant.user fetchIfNeeded].username;
-        if(channel == nil){
-            channel = @"";
-        }
-        [PFCloud callFunction:@"sendPushNotification" withParameters:@{@"AlertText":[NSString stringWithFormat:@"%@ with party size of %@ has been added to your Queue", self.currentCustomer.name, self.currentCustomer.partySize], @"channel":channel}];
-        
-   
-        
+        [self joinQueueForRestaurant:restaurant withPartySize:partySize];
     }];
     
     UIAlertAction * closeAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
@@ -384,6 +397,34 @@
     [self presentViewController:alertController animated:YES completion:nil];
     
     }
+}
+
+/**
+ Create a new custom and add them to a restaurants queue.
+ 
+ @param restaurant The restaurant to add the user to.
+ @param partySize The number of people that are joining the queue.
+ */
+- (void)joinQueueForRestaurant:(Restaurant *)restaurant withPartySize:(NSString *)partySize {
+    //Create a new customer, add them to the restaurants queue then save both
+    Customer *newCustomer = [Customer customerWithUser:[User currentUser] partySize:partySize andDistance:@"Calculate this"];
+    [restaurant addCustomer:newCustomer];
+    [newCustomer saveInBackground];
+    [restaurant saveInBackground];
+    self.currentCustomer = newCustomer;
+    self.currentRestaurant = restaurant;
+    
+    
+    //Show the position in Queue indicator, unselect the map marker to hide the info window
+    [self updateQueueInfoWindow];
+    self.mapView.selectedMarker = nil;
+    
+    //Send a push notification to the restaurant to inform them and update their view
+    NSString *channel = [restaurant.user fetchIfNeeded].username;
+    if(channel == nil){
+        channel = @"";
+    }
+    [PFCloud callFunction:@"sendPushNotification" withParameters:@{@"AlertText":[NSString stringWithFormat:@"%@ with party size of %@ has been added to your Queue", self.currentCustomer.name, self.currentCustomer.partySize], @"channel":channel}];
 }
 
 #pragma mark - Storyboard Actions
@@ -399,7 +440,11 @@
     if(channel == nil){
         channel = @"";
     }
-    [PFCloud callFunction:@"sendPushNotification" withParameters:@{@"AlertText":message, @"channel":channel}];
+    
+    /*
+     This is a syncronous call to the network and should be done on a background thread
+     */
+    [PFCloud callFunctionInBackground:@"sendPushNotification" withParameters:@{@"AlertText":message, @"channel":channel}];
     
     
     [self updateQueueInfoWindow];
@@ -444,6 +489,9 @@
     }];
 }
 
+/*
+ Nice function. You could even add this to an extension of UIView (category in Objective-C)
+ */
 -(void)fadeInAnimation:(UIView *)aView {
     
     CATransition *transition = [CATransition animation];

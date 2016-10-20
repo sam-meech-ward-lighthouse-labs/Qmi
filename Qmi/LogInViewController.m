@@ -65,21 +65,36 @@
 #pragma mark - self methods
 
 -(void)logIn{
-    if([User logInWithUsername:self.emailTextField.text password:self.passwordTextField.text]){
+    /*
+     `logInWithUsername` is a syncronous call to the network so should be done on a background thread.
+     `logInWithUsername` also returns the logged in user on success so you could have used this value instead of doing this on the line below 
+     `User *currentUser = [User currentUser];`
+     
+     You could also display a loading indicator while you try to login on the background thread.
+     */
+    
+    NSOperationQueue *bacgroundQueue = [[NSOperationQueue alloc] init];
+    
+    [bacgroundQueue addOperationWithBlock:^{
         
-        User *currentUser = [User currentUser];
+        User *currentUser = [User logInWithUsername:self.emailTextField.text password:self.passwordTextField.text];
         
-        if(currentUser.isCustomer)
-        {
-            [self performSegueWithIdentifier:@"ShowCustomerMainView" sender:self];
-        }
-        else{
-            [self performSegueWithIdentifier:@"ShowRestaurantQueue" sender:self];
-        }
-        
-    }else{
-        [self presentBasicAlertWithTitle:@"Login Failed" andMessage:@""];
-    }
+        // All the rest is UI stuff so put it on the main thread
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+            
+            if (!currentUser) {
+                [self presentBasicAlertWithTitle:@"Login Failed" andMessage:@""];
+                return;
+            }
+            
+            if(currentUser.isCustomer) {
+                [self performSegueWithIdentifier:@"ShowCustomerMainView" sender:self];
+            } else{
+                [self performSegueWithIdentifier:@"ShowRestaurantQueue" sender:self];
+            }
+            
+        }];
+    }];
 }
 
 - (void)showUpSignUpAlert
@@ -152,12 +167,23 @@
             
             
             
+            /*
+             `[newUser signUp]` is a syncronous call and should be done on the background
+             */
             
-            if([newUser signUp]){
-                [self performSegueWithIdentifier:@"ShowCustomerMainView" sender:self];
-            }else{
-                [self presentBasicAlertWithTitle:@"Sign Up Failed" andMessage:@"Username is taken"];
-            }
+            NSOperationQueue *bacgroundQueue = [[NSOperationQueue alloc] init];
+            [bacgroundQueue addOperationWithBlock:^{
+                
+                if([newUser signUp]) {
+                    [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+                        [self performSegueWithIdentifier:@"ShowCustomerMainView" sender:self];
+                    }];
+                } else {
+                    [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+                        [self presentBasicAlertWithTitle:@"Sign Up Failed" andMessage:@"Username is taken"];
+                    }];
+                }
+            }];
         }
         else{
             [self presentBasicAlertWithTitle:@"Sign Up Failed" andMessage:@"Passwords do not match"];
